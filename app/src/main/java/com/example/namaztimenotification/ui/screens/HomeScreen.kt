@@ -289,7 +289,6 @@ fun HomeScreen(
 fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
     var progress by remember { mutableStateOf(0f) }
     val totalDuration = ChronoUnit.MINUTES.between(prayer.startTime, prayer.endTime)
-    val elapsedDuration = ChronoUnit.MINUTES.between(prayer.startTime, LocalTime.now())
     
     LaunchedEffect(prayer) {
         while (true) {
@@ -316,71 +315,40 @@ fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Current Prayer: ${prayer.prayerName}",
-                style = MaterialTheme.typography.headlineSmall,
+                text = prayer.prayerName,
+                style = MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
-            // Progress indicator
-            LinearProgressIndicator(
-                progress = progress,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "Start",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-                
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "End",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Text(
-                        text = prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Remaining time with animation
+            // Timer with circular progress
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(40.dp),
+                    .size(120.dp)
+                    .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(
-                    progress = 1f,
-                    modifier = Modifier.size(40.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                    progress = progress,
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 8.dp
                 )
-                Text(
-                    text = timeUntilEnd,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = timeUntilEnd,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
     }
