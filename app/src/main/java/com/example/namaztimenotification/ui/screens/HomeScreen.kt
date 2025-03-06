@@ -67,11 +67,19 @@ fun HomeScreen(
             try {
                 context.contentResolver.openInputStream(it)?.use { inputStream ->
                     scope.launch {
-                        repository.importFromCsv(inputStream)
+                        try {
+                            repository.importFromCsv(inputStream)
+                        } catch (e: Exception) {
+                            errorMessage = "Error processing CSV file: ${e.message}"
+                            showErrorDialog = true
+                        }
                     }
+                } ?: run {
+                    errorMessage = "Could not open the selected file"
+                    showErrorDialog = true
                 }
             } catch (e: Exception) {
-                errorMessage = "Error importing CSV: ${e.message}"
+                errorMessage = "Error accessing file: ${e.message}"
                 showErrorDialog = true
             }
         }
@@ -84,14 +92,27 @@ fun HomeScreen(
         uri?.let {
             try {
                 context.contentResolver.openInputStream(it)?.use { inputStream ->
-                    val jsonString = BufferedReader(InputStreamReader(inputStream)).readText()
-                    val json = JSONObject(jsonString)
-                    scope.launch {
-                        userPreferences.importFromJson(json)
+                    try {
+                        val jsonString = BufferedReader(InputStreamReader(inputStream)).readText()
+                        val json = JSONObject(jsonString)
+                        scope.launch {
+                            try {
+                                userPreferences.importFromJson(json)
+                            } catch (e: Exception) {
+                                errorMessage = "Error importing settings: ${e.message}"
+                                showErrorDialog = true
+                            }
+                        }
+                    } catch (e: Exception) {
+                        errorMessage = "Error reading settings file: ${e.message}"
+                        showErrorDialog = true
                     }
+                } ?: run {
+                    errorMessage = "Could not open the selected file"
+                    showErrorDialog = true
                 }
             } catch (e: Exception) {
-                errorMessage = "Error importing settings: ${e.message}"
+                errorMessage = "Error accessing file: ${e.message}"
                 showErrorDialog = true
             }
         }
@@ -105,14 +126,22 @@ fun HomeScreen(
             try {
                 context.contentResolver.openOutputStream(it)?.use { outputStream ->
                     scope.launch {
-                        val json = userPreferences.exportToJson()
-                        OutputStreamWriter(outputStream).use { writer ->
-                            writer.write(json.toString())
+                        try {
+                            val json = userPreferences.exportToJson()
+                            OutputStreamWriter(outputStream).use { writer ->
+                                writer.write(json.toString())
+                            }
+                        } catch (e: Exception) {
+                            errorMessage = "Error exporting settings: ${e.message}"
+                            showErrorDialog = true
                         }
                     }
+                } ?: run {
+                    errorMessage = "Could not create the output file"
+                    showErrorDialog = true
                 }
             } catch (e: Exception) {
-                errorMessage = "Error exporting settings: ${e.message}"
+                errorMessage = "Error saving file: ${e.message}"
                 showErrorDialog = true
             }
         }
