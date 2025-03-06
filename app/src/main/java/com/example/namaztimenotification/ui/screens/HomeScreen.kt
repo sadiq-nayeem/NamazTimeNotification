@@ -219,9 +219,11 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // Current Prayer Card
-            currentPrayerTime?.let { prayer ->
-                CurrentPrayerCard(prayer, timeUntilEnd)
+            // Current Prayer Card - only show for today's date
+            if (selectedDate == LocalDate.now()) {
+                currentPrayerTime?.let { prayer ->
+                    CurrentPrayerCard(prayer, timeUntilEnd)
+                }
             }
 
             // Date Selection
