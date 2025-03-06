@@ -1,5 +1,6 @@
 package com.example.namaztimenotification.ui.screens
 
+import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,6 +50,22 @@ fun HomeScreen(
     val repository = remember { PrayerTimeRepository(context) }
     val userPreferences = remember { UserPreferences(context) }
     val prayerTimes by repository.prayerTimes.collectAsState()
+    val scope = rememberCoroutineScope()
+    
+    // Auto-load CSV file on app start
+    LaunchedEffect(Unit) {
+        try {
+            val csvFile = context.getFileStreamPath("prayer_times.csv")
+            if (csvFile.exists()) {
+                Log.d("HomeScreen", "Found existing CSV file, auto-loading...")
+                context.openFileInput("prayer_times.csv").use { inputStream ->
+                    repository.importFromCsv(inputStream)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HomeScreen", "Error auto-loading CSV file", e)
+        }
+    }
     
     Log.d("HomeScreen", "Prayer times updated: ${prayerTimes.size} entries")
     
@@ -69,7 +86,6 @@ fun HomeScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
 
     // CSV import launcher
     val csvLauncher = rememberLauncherForActivityResult(
@@ -84,7 +100,19 @@ fun HomeScreen(
                     scope.launch {
                         try {
                             Log.d("HomeScreen", "Starting CSV import")
-                            repository.importFromCsv(inputStream)
+                            // First read the entire input stream into a byte array
+                            val csvContent = inputStream.readBytes()
+                            
+                            // Save the CSV file for future auto-loading
+                            context.openFileOutput("prayer_times.csv", Context.MODE_PRIVATE).use { outputStream ->
+                                outputStream.write(csvContent)
+                            }
+                            
+                            // Create a new input stream from the byte array for importing
+                            csvContent.inputStream().use { csvInputStream ->
+                                repository.importFromCsv(csvInputStream)
+                            }
+                            
                             Log.d("HomeScreen", "CSV import completed successfully")
                         } catch (e: Exception) {
                             Log.e("HomeScreen", "Error processing CSV file", e)
