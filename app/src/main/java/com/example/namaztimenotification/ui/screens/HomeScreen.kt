@@ -51,7 +51,7 @@ fun HomeScreen(
     val prayerTimes by repository.prayerTimes.collectAsState()
     val currentPrayerTime by remember { mutableStateOf(repository.getCurrentPrayerTime()) }
     val nextPrayerTime by remember { mutableStateOf(repository.getNextPrayerTime()) }
-    val selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     val availableDates by remember { mutableStateOf(repository.getAvailableDates()) }
     
     var timeUntilEnd by remember { mutableStateOf("") }
@@ -287,12 +287,28 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
+    var progress by remember { mutableStateOf(0f) }
+    val totalDuration = ChronoUnit.MINUTES.between(prayer.startTime, prayer.endTime)
+    val elapsedDuration = ChronoUnit.MINUTES.between(prayer.startTime, LocalTime.now())
+    
+    LaunchedEffect(prayer) {
+        while (true) {
+            val currentElapsed = ChronoUnit.MINUTES.between(prayer.startTime, LocalTime.now())
+            progress = (currentElapsed.toFloat() / totalDuration.toFloat()).coerceIn(0f, 1f)
+            kotlinx.coroutines.delay(1000) // Update every second
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 8.dp
         )
     ) {
         Column(
@@ -301,21 +317,71 @@ fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
         ) {
             Text(
                 text = "Current Prayer: ${prayer.prayerName}",
-                style = MaterialTheme.typography.headlineSmall
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
             )
-            Text(
-                text = "Start: ${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
-                style = MaterialTheme.typography.bodyLarge
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Progress indicator
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
             )
-            Text(
-                text = "End: ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Text(
-                text = timeUntilEnd,
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center
-            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Start",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "End",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm")),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Remaining time with animation
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    progress = 1f,
+                    modifier = Modifier.size(40.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                )
+                Text(
+                    text = timeUntilEnd,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }
