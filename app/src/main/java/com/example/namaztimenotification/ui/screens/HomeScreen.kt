@@ -49,8 +49,19 @@ fun HomeScreen(
     val repository = remember { PrayerTimeRepository(context) }
     val userPreferences = remember { UserPreferences(context) }
     val prayerTimes by repository.prayerTimes.collectAsState()
-    val currentPrayerTime by remember { mutableStateOf(repository.getCurrentPrayerTime()) }
-    val nextPrayerTime by remember { mutableStateOf(repository.getNextPrayerTime()) }
+    
+    Log.d("HomeScreen", "Prayer times updated: ${prayerTimes.size} entries")
+    
+    // Update current prayer time when prayer times change
+    val currentPrayerTime by remember(prayerTimes) {
+        mutableStateOf(repository.getCurrentPrayerTime())
+    }
+    
+    // Update next prayer time when prayer times change
+    val nextPrayerTime by remember(prayerTimes) {
+        mutableStateOf(repository.getNextPrayerTime())
+    }
+    
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     val availableDates by remember { mutableStateOf(repository.getAvailableDates()) }
     
@@ -165,14 +176,17 @@ fun HomeScreen(
         while (true) {
             currentPrayerTime?.let { prayer ->
                 val now = LocalTime.now()
-                val timeLeft = ChronoUnit.MINUTES.between(now, prayer.endTime)
+                val timeLeft = ChronoUnit.SECONDS.between(now, prayer.endTime)
                 if (timeLeft > 0) {
-                    timeUntilEnd = "${timeLeft} minutes remaining"
+                    val hours = timeLeft / 3600
+                    val minutes = (timeLeft % 3600) / 60
+                    val seconds = timeLeft % 60
+                    timeUntilEnd = String.format("%02d:%02d:%02d", hours, minutes, seconds)
                 } else {
                     timeUntilEnd = "Prayer time ended"
                 }
             }
-            kotlinx.coroutines.delay(60000) // Update every minute
+            kotlinx.coroutines.delay(1000) // Update every second
         }
     }
 
@@ -303,14 +317,25 @@ fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
+                text = "Current Prayer",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            
+            Text(
                 text = prayer.prayerName,
                 style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.primary
             )
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Time display
+            Text(
+                text = "Time Remaining",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+            
             Text(
                 text = timeUntilEnd,
                 style = MaterialTheme.typography.displaySmall,
@@ -319,9 +344,8 @@ fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Time range
             Text(
-                text = "${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+                text = "Prayer Time: ${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )

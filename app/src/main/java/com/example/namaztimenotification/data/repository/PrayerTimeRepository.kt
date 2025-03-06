@@ -18,6 +18,11 @@ class PrayerTimeRepository(private val context: Context) {
     private val dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
+    init {
+        Log.d("PrayerTimeRepository", "Repository initialized")
+        Log.d("PrayerTimeRepository", "Current prayer times count: ${_prayerTimes.value.size}")
+    }
+
     suspend fun importFromCsv(inputStream: java.io.InputStream) {
         val prayerTimesList = mutableListOf<PrayerTime>()
         
@@ -48,6 +53,7 @@ class PrayerTimeRepository(private val context: Context) {
             
             Log.d("PrayerTimeRepository", "Successfully parsed ${prayerTimesList.size} prayer times")
             _prayerTimes.value = prayerTimesList.sortedBy { it.date }
+            Log.d("PrayerTimeRepository", "Updated prayer times in StateFlow. New count: ${_prayerTimes.value.size}")
         } catch (e: Exception) {
             Log.e("PrayerTimeRepository", "Error importing CSV", e)
             throw e
@@ -78,29 +84,70 @@ class PrayerTimeRepository(private val context: Context) {
     }
 
     fun getCurrentPrayerTime(): PrayerTime? {
+        Log.d("PrayerTimeRepository", "getCurrentPrayerTime called")
+        Log.d("PrayerTimeRepository", "Total prayer times available: ${_prayerTimes.value.size}")
+        
         val now = LocalDate.now()
         val currentTime = LocalTime.now()
         
-        return _prayerTimes.value
+        Log.d("PrayerTimeRepository", "Finding current prayer time for date: $now, current time: $currentTime")
+        
+        // First try to find a prayer that's currently active
+        val currentPrayer = _prayerTimes.value
             .filter { it.date == now }
             .firstOrNull { prayerTime ->
                 currentTime in prayerTime.startTime..prayerTime.endTime
             }
+            
+        if (currentPrayer != null) {
+            Log.d("PrayerTimeRepository", "Found current prayer: ${currentPrayer.prayerName} (${currentPrayer.startTime}-${currentPrayer.endTime})")
+            return currentPrayer
+        }
+        
+        // If no prayer is currently active, find the most recent prayer that ended
+        val lastEndedPrayer = _prayerTimes.value
+            .filter { it.date == now }
+            .filter { it.endTime <= currentTime }
+            .maxByOrNull { it.endTime }
+            
+        if (lastEndedPrayer != null) {
+            Log.d("PrayerTimeRepository", "Found last ended prayer: ${lastEndedPrayer.prayerName} (${lastEndedPrayer.startTime}-${lastEndedPrayer.endTime})")
+            return lastEndedPrayer
+        }
+        
+        Log.d("PrayerTimeRepository", "No current or recent prayer found")
+        return null
     }
 
     fun getNextPrayerTime(): PrayerTime? {
         val now = LocalDate.now()
         val currentTime = LocalTime.now()
         
-        return _prayerTimes.value
-            .filter { it.date >= now }
-            .firstOrNull { prayerTime ->
-                if (prayerTime.date == now) {
-                    prayerTime.startTime > currentTime
-                } else {
-                    true
-                }
-            }
+        Log.d("PrayerTimeRepository", "Finding next prayer time for date: $now, current time: $currentTime")
+        
+        // First try to find the next prayer today
+        val nextPrayerToday = _prayerTimes.value
+            .filter { it.date == now }
+            .filter { it.startTime > currentTime }
+            .minByOrNull { it.startTime }
+            
+        if (nextPrayerToday != null) {
+            Log.d("PrayerTimeRepository", "Found next prayer today: ${nextPrayerToday.prayerName} (${nextPrayerToday.startTime}-${nextPrayerToday.endTime})")
+            return nextPrayerToday
+        }
+        
+        // If no prayers left today, find the first prayer tomorrow
+        val firstPrayerTomorrow = _prayerTimes.value
+            .filter { it.date > now }
+            .minByOrNull { it.date }
+            
+        if (firstPrayerTomorrow != null) {
+            Log.d("PrayerTimeRepository", "Found first prayer tomorrow: ${firstPrayerTomorrow.prayerName} (${firstPrayerTomorrow.startTime}-${firstPrayerTomorrow.endTime})")
+            return firstPrayerTomorrow
+        }
+        
+        Log.d("PrayerTimeRepository", "No next prayer found")
+        return null
     }
 
     fun getAvailableDates(): List<LocalDate> {
