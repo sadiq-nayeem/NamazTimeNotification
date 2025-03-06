@@ -234,9 +234,8 @@ fun HomeScreen(
         // Date Picker Dialog
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
-                initialSelectedDateMillis = selectedDate
-                    .atStartOfDay()
-                    .atZone(ZoneId.systemDefault())
+                initialSelectedDateMillis = LocalDate.now()
+                    .atStartOfDay(ZoneId.systemDefault())
                     .toInstant()
                     .toEpochMilli()
             )
@@ -287,17 +286,6 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
-    var progress by remember { mutableStateOf(0f) }
-    val totalDuration = ChronoUnit.MINUTES.between(prayer.startTime, prayer.endTime)
-    
-    LaunchedEffect(prayer) {
-        while (true) {
-            val currentElapsed = ChronoUnit.MINUTES.between(prayer.startTime, LocalTime.now())
-            progress = (currentElapsed.toFloat() / totalDuration.toFloat()).coerceIn(0f, 1f)
-            kotlinx.coroutines.delay(1000) // Update every second
-        }
-    }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -320,36 +308,23 @@ fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            // Timer with circular progress
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(
-                    progress = progress,
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.primary,
-                    strokeWidth = 8.dp
-                )
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = timeUntilEnd,
-                        style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = "${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
+            // Time display
+            Text(
+                text = timeUntilEnd,
+                style = MaterialTheme.typography.displaySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Time range
+            Text(
+                text = "${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
     }
 }
