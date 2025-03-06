@@ -233,10 +233,25 @@ fun HomeScreen(
 
         // Date Picker Dialog
         if (showDatePicker) {
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = selectedDate
+                    .atStartOfDay()
+                    .atZone(ZoneId.systemDefault())
+                    .toInstant()
+                    .toEpochMilli()
+            )
+            
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
                 confirmButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
+                    TextButton(
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                selectedDate = LocalDate.ofEpochDay(millis / (24 * 60 * 60 * 1000))
+                            }
+                            showDatePicker = false
+                        }
+                    ) {
                         Text("OK")
                     }
                 },
@@ -247,13 +262,7 @@ fun HomeScreen(
                 }
             ) {
                 DatePicker(
-                    state = rememberDatePickerState(
-                        initialSelectedDateMillis = selectedDate
-                            .atStartOfDay()
-                            .atZone(ZoneId.systemDefault())
-                            .toInstant()
-                            .toEpochMilli()
-                    ),
+                    state = datePickerState,
                     modifier = Modifier.padding(16.dp)
                 )
             }
