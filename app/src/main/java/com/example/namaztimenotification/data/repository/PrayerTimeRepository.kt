@@ -1,6 +1,7 @@
 package com.example.namaztimenotification.data.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.namaztimenotification.data.model.PrayerTime
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,31 +21,55 @@ class PrayerTimeRepository(private val context: Context) {
     suspend fun importFromCsv(inputStream: java.io.InputStream) {
         val prayerTimesList = mutableListOf<PrayerTime>()
         
-        BufferedReader(InputStreamReader(inputStream)).use { reader ->
-            // Skip header
-            reader.readLine()
+        try {
+            Log.d("PrayerTimeRepository", "Starting CSV import")
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            // Read and validate header
+            val header = reader.readLine()
+            Log.d("PrayerTimeRepository", "CSV Header: $header")
+            if (header == null || !header.contains("date") || !header.contains("prayer") || 
+                !header.contains("start") || !header.contains("end")) {
+                throw IllegalArgumentException("Invalid CSV format. Expected header: date,prayer,start,end")
+            }
             
+            var lineNumber = 1
             var line: String?
             while (reader.readLine().also { line = it } != null) {
-                line?.let { parseAndAddPrayerTime(it, prayerTimesList) }
+                lineNumber++
+                line?.let { 
+                    try {
+                        parseAndAddPrayerTime(it, prayerTimesList)
+                    } catch (e: Exception) {
+                        Log.e("PrayerTimeRepository", "Error parsing line $lineNumber: $it", e)
+                        throw IllegalArgumentException("Error in line $lineNumber: ${e.message}")
+                    }
+                }
             }
+            
+            Log.d("PrayerTimeRepository", "Successfully parsed ${prayerTimesList.size} prayer times")
+            _prayerTimes.value = prayerTimesList.sortedBy { it.date }
+        } catch (e: Exception) {
+            Log.e("PrayerTimeRepository", "Error importing CSV", e)
+            throw e
         }
-        
-        _prayerTimes.value = prayerTimesList.sortedBy { it.date }
     }
 
     private fun parseAndAddPrayerTime(line: String, list: MutableList<PrayerTime>) {
+        val parts = line.split(",")
+        if (parts.size != 4) {
+            throw IllegalArgumentException("Invalid line format. Expected 4 columns, got ${parts.size}")
+        }
+
+        val (dateStr, prayerName, startTimeStr, endTimeStr) = parts
+        
         try {
-            val (dateStr, prayerName, startTimeStr, endTimeStr) = line.split(",")
+            val date = LocalDate.parse(dateStr.trim(), dateFormatter)
+            val startTime = LocalTime.parse(startTimeStr.trim(), timeFormatter)
+            val endTime = LocalTime.parse(endTimeStr.trim(), timeFormatter)
             
-            val date = LocalDate.parse(dateStr, dateFormatter)
-            val startTime = LocalTime.parse(startTimeStr, timeFormatter)
-            val endTime = LocalTime.parse(endTimeStr, timeFormatter)
-            
-            list.add(PrayerTime(date, prayerName, startTime, endTime))
+            list.add(PrayerTime(date, prayerName.trim(), startTime, endTime))
         } catch (e: Exception) {
-            // Log error or handle invalid line
-            e.printStackTrace()
+            throw IllegalArgumentException("Error parsing values: date=$dateStr, prayer=$prayerName, start=$startTimeStr, end=$endTimeStr")
         }
     }
 

@@ -35,6 +35,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import org.json.JSONObject
+import android.util.Log
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,25 +64,37 @@ fun HomeScreen(
     val csvLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
+        Log.d("HomeScreen", "CSV launcher result: $uri")
         uri?.let {
             try {
-                context.contentResolver.openInputStream(it)?.use { inputStream ->
+                Log.d("HomeScreen", "Attempting to open file: $it")
+                val inputStream = context.contentResolver.openInputStream(it)
+                if (inputStream != null) {
                     scope.launch {
                         try {
+                            Log.d("HomeScreen", "Starting CSV import")
                             repository.importFromCsv(inputStream)
+                            Log.d("HomeScreen", "CSV import completed successfully")
                         } catch (e: Exception) {
+                            Log.e("HomeScreen", "Error processing CSV file", e)
                             errorMessage = "Error processing CSV file: ${e.message}"
                             showErrorDialog = true
+                        } finally {
+                            inputStream.close()
                         }
                     }
-                } ?: run {
+                } else {
+                    Log.e("HomeScreen", "Could not open the selected file")
                     errorMessage = "Could not open the selected file"
                     showErrorDialog = true
                 }
             } catch (e: Exception) {
+                Log.e("HomeScreen", "Error accessing file", e)
                 errorMessage = "Error accessing file: ${e.message}"
                 showErrorDialog = true
             }
+        } ?: run {
+            Log.d("HomeScreen", "No file selected")
         }
     }
 
@@ -168,7 +181,10 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Prayer Times") },
                 actions = {
-                    TextButton(onClick = { csvLauncher.launch("text/csv") }) {
+                    TextButton(onClick = { 
+                        Log.d("HomeScreen", "Launching CSV picker")
+                        csvLauncher.launch("*/*") // Accept all file types
+                    }) {
                         Text("Import CSV")
                     }
                     TextButton(onClick = { settingsExportLauncher.launch("settings.json") }) {
