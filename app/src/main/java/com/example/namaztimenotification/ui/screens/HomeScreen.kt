@@ -1,0 +1,300 @@
+package com.example.namaztimenotification.ui.screens
+
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+//import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Settings
+//import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.media3.exoplayer.offline.Download
+import com.example.namaztimenotification.R
+import com.example.namaztimenotification.data.model.PrayerTime
+import com.example.namaztimenotification.data.preferences.UserPreferences
+import com.example.namaztimenotification.data.repository.PrayerTimeRepository
+import com.example.namaztimenotification.worker.PrayerNotificationWorker
+import kotlinx.coroutines.launch
+import org.threeten.bp.LocalDate
+import org.threeten.bp.LocalTime
+import org.threeten.bp.ZoneId
+import org.threeten.bp.format.DateTimeFormatter
+import org.threeten.bp.temporal.ChronoUnit
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
+import org.json.JSONObject
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(
+    onNavigateToSettings: () -> Unit,
+    onImportCsv: () -> Unit,
+    onExportSettings: () -> Unit,
+    onImportSettings: () -> Unit
+) {
+    val context = LocalContext.current
+    val repository = remember { PrayerTimeRepository(context) }
+    val userPreferences = remember { UserPreferences(context) }
+    val prayerTimes by repository.prayerTimes.collectAsState()
+    val currentPrayerTime by remember { mutableStateOf(repository.getCurrentPrayerTime()) }
+    val nextPrayerTime by remember { mutableStateOf(repository.getNextPrayerTime()) }
+    val selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    val availableDates by remember { mutableStateOf(repository.getAvailableDates()) }
+    
+    var timeUntilEnd by remember { mutableStateOf("") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showErrorDialog by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    // CSV import launcher
+    val csvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                context.contentResolver.openInputStream(it)?.use { inputStream ->
+                    scope.launch {
+                        repository.importFromCsv(inputStream)
+                    }
+                }
+            } catch (e: Exception) {
+                errorMessage = "Error importing CSV: ${e.message}"
+                showErrorDialog = true
+            }
+        }
+    }
+
+    // Settings import launcher
+    val settingsImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                context.contentResolver.openInputStream(it)?.use { inputStream ->
+                    val jsonString = BufferedReader(InputStreamReader(inputStream)).readText()
+                    val json = JSONObject(jsonString)
+                    scope.launch {
+                        userPreferences.importFromJson(json)
+                    }
+                }
+            } catch (e: Exception) {
+                errorMessage = "Error importing settings: ${e.message}"
+                showErrorDialog = true
+            }
+        }
+    }
+
+    // Settings export launcher
+    val settingsExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let {
+            try {
+                context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                    scope.launch {
+                        val json = userPreferences.exportToJson()
+                        OutputStreamWriter(outputStream).use { writer ->
+                            writer.write(json.toString())
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                errorMessage = "Error exporting settings: ${e.message}"
+                showErrorDialog = true
+            }
+        }
+    }
+
+    // Update countdown timer
+    LaunchedEffect(currentPrayerTime) {
+        while (true) {
+            currentPrayerTime?.let { prayer ->
+                val now = LocalTime.now()
+                val timeLeft = ChronoUnit.MINUTES.between(now, prayer.endTime)
+                if (timeLeft > 0) {
+                    timeUntilEnd = "${timeLeft} minutes remaining"
+                } else {
+                    timeUntilEnd = "Prayer time ended"
+                }
+            }
+            kotlinx.coroutines.delay(60000) // Update every minute
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Prayer Times") },
+                actions = {
+                    TextButton(onClick = onImportCsv) {
+                        Text("Import CSV")
+                    }
+                    TextButton(onClick = onExportSettings) {
+                        Text("Export")
+                    }
+                    TextButton(onClick = onImportSettings) {
+                        Text("Import")
+                    }
+                    TextButton(onClick = onNavigateToSettings) {
+                        Text("Settings")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Current Prayer Card
+            currentPrayerTime?.let { prayer ->
+                CurrentPrayerCard(prayer, timeUntilEnd)
+            }
+
+            // Date Selection
+            Button(
+                onClick = { showDatePicker = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text("Select Date: ${selectedDate.format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))}")
+            }
+
+            // Prayer Times List
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp)
+            ) {
+                items(repository.getPrayerTimesForDate(selectedDate)) { prayer ->
+                    PrayerTimeCard(prayer)
+                }
+            }
+        }
+
+        // Date Picker Dialog
+        if (showDatePicker) {
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(
+                    state = rememberDatePickerState(
+                        initialSelectedDateMillis = selectedDate
+                            .atStartOfDay()
+                            .atZone(ZoneId.systemDefault())
+                            .toInstant()
+                            .toEpochMilli()
+                    ),
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+        }
+
+        // Error Dialog
+        if (showErrorDialog) {
+            AlertDialog(
+                onDismissRequest = { showErrorDialog = false },
+                title = { Text("Error") },
+                text = { Text(errorMessage) },
+                confirmButton = {
+                    TextButton(onClick = { showErrorDialog = false }) {
+                        Text("OK")
+                    }
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Current Prayer: ${prayer.prayerName}",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                text = "Start: ${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = "End: ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = timeUntilEnd,
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PrayerTimeCard(prayer: PrayerTime) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = prayer.prayerName,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "Start: ${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "End: ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+    }
+} 
