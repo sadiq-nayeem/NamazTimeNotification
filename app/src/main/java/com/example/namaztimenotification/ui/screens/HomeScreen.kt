@@ -259,13 +259,17 @@ fun HomeScreen(
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
                 confirmButton = {
-                    TextButton(
+                    Button(
                         onClick = {
                             datePickerState.selectedDateMillis?.let { millis ->
                                 selectedDate = LocalDate.ofEpochDay(millis / (24 * 60 * 60 * 1000))
                             }
                             showDatePicker = false
-                        }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     ) {
                         Text("OK")
                     }
@@ -278,7 +282,7 @@ fun HomeScreen(
             ) {
                 DatePicker(
                     state = datePickerState,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(20.dp)
                 )
             }
         }
