@@ -175,26 +175,25 @@ fun HomeScreen(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? ->
         uri?.let {
-            try {
-                context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                    scope.launch {
-                        try {
-                            val json = userPreferences.exportToJson()
-                            OutputStreamWriter(outputStream).use { writer ->
-                                writer.write(json.toString())
-                            }
-                        } catch (e: Exception) {
-                            errorMessage = "Error exporting settings: ${e.message}"
-                            showErrorDialog = true
-                        }
+            scope.launch {
+                try {
+                    val json = userPreferences.exportToJson()
+                    val jsonString = json.toString()
+                    
+                    context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                        outputStream.write(jsonString.toByteArray())
+                        outputStream.flush()
+                        Log.d("HomeScreen", "Settings exported successfully")
+                    } ?: run {
+                        Log.e("HomeScreen", "Could not create the output file")
+                        errorMessage = "Could not create the output file"
+                        showErrorDialog = true
                     }
-                } ?: run {
-                    errorMessage = "Could not create the output file"
+                } catch (e: Exception) {
+                    Log.e("HomeScreen", "Error saving file", e)
+                    errorMessage = "Error saving file: ${e.message}"
                     showErrorDialog = true
                 }
-            } catch (e: Exception) {
-                errorMessage = "Error saving file: ${e.message}"
-                showErrorDialog = true
             }
         }
     }
