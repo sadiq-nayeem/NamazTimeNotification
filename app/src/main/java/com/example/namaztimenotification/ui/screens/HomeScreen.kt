@@ -139,13 +139,13 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Prayer Times") },
                 actions = {
-                    TextButton(onClick = onImportCsv) {
+                    TextButton(onClick = { csvLauncher.launch("text/csv") }) {
                         Text("Import CSV")
                     }
-                    TextButton(onClick = onExportSettings) {
+                    TextButton(onClick = { settingsExportLauncher.launch("settings.json") }) {
                         Text("Export")
                     }
-                    TextButton(onClick = onImportSettings) {
+                    TextButton(onClick = { settingsImportLauncher.launch("application/json") }) {
                         Text("Import")
                     }
                     TextButton(onClick = onNavigateToSettings) {
