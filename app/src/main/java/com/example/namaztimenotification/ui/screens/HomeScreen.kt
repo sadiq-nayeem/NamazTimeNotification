@@ -319,19 +319,23 @@ fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
         )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "Current Prayer",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center
             )
             
             Text(
                 text = prayer.prayerName,
                 style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center
             )
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -339,13 +343,15 @@ fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
             Text(
                 text = "Time Remaining",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center
             )
             
             Text(
                 text = timeUntilEnd,
                 style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center
             )
             
             Spacer(modifier = Modifier.height(8.dp))
@@ -353,7 +359,8 @@ fun CurrentPrayerCard(prayer: PrayerTime, timeUntilEnd: String) {
             Text(
                 text = "Prayer Time: ${prayer.startTime.format(DateTimeFormatter.ofPattern("HH:mm"))} - ${prayer.endTime.format(DateTimeFormatter.ofPattern("HH:mm"))}",
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                textAlign = TextAlign.Center
             )
         }
     }
