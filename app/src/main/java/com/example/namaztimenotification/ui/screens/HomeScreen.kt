@@ -143,30 +143,40 @@ fun HomeScreen(
     ) { uri: Uri? ->
         uri?.let {
             try {
+                Log.d("HomeScreen", "Starting settings import from: $it")
                 context.contentResolver.openInputStream(it)?.use { inputStream ->
                     try {
                         val jsonString = BufferedReader(InputStreamReader(inputStream)).readText()
+                        Log.d("HomeScreen", "Read JSON string: $jsonString")
                         val json = JSONObject(jsonString)
                         scope.launch {
                             try {
+                                Log.d("HomeScreen", "Starting importFromJson")
                                 userPreferences.importFromJson(json)
+                                Log.d("HomeScreen", "Settings imported successfully")
                             } catch (e: Exception) {
+                                Log.e("HomeScreen", "Error importing settings", e)
                                 errorMessage = "Error importing settings: ${e.message}"
                                 showErrorDialog = true
                             }
                         }
                     } catch (e: Exception) {
+                        Log.e("HomeScreen", "Error reading settings file", e)
                         errorMessage = "Error reading settings file: ${e.message}"
                         showErrorDialog = true
                     }
                 } ?: run {
+                    Log.e("HomeScreen", "Could not open the selected file")
                     errorMessage = "Could not open the selected file"
                     showErrorDialog = true
                 }
             } catch (e: Exception) {
+                Log.e("HomeScreen", "Error accessing file", e)
                 errorMessage = "Error accessing file: ${e.message}"
                 showErrorDialog = true
             }
+        } ?: run {
+            Log.d("HomeScreen", "No file selected for import")
         }
     }
 
@@ -177,11 +187,20 @@ fun HomeScreen(
         uri?.let {
             scope.launch {
                 try {
+                    Log.d("HomeScreen", "Starting settings export")
+                    
+                    // Get the JSON object from UserPreferences
                     val json = userPreferences.exportToJson()
-                    val jsonString = json.toString()
+                    Log.d("HomeScreen", "Got JSON object from UserPreferences: $json")
+                    
+                    val jsonString = json.toString(2) // Pretty print the JSON
+                    Log.d("HomeScreen", "Converted to string: $jsonString")
+                    
+                    val bytes = jsonString.toByteArray()
+                    Log.d("HomeScreen", "Converted to bytes: ${bytes.size} bytes")
                     
                     context.contentResolver.openOutputStream(it)?.use { outputStream ->
-                        outputStream.write(jsonString.toByteArray())
+                        outputStream.write(bytes)
                         outputStream.flush()
                         Log.d("HomeScreen", "Settings exported successfully")
                     } ?: run {
